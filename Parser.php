@@ -18,6 +18,7 @@ class Parser
         $options = array(
             CURLOPT_URL => $this->url,
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_SSL_VERIFYPEER => false
         );
         $curl = curl_init();
         curl_setopt_array($curl, $options);
@@ -34,45 +35,46 @@ class Parser
     {
         $startPoint = mb_strpos($this->page, $this->openTag);
         do {
-            $workingTag = mb_substr($this->page, $startPoint);
-            $endedTag = $this->endingSearch($workingTag, $this->openTag, $this->closeTag);
-            if (preg_match('#\\s#', $endedTag)) {
-                $clearTag = $this->clearTag($endedTag);
+            $this->page = mb_substr($this->page, $startPoint);
+            $openTag = $this->openSearch();
+            if (preg_match('#\\s#', $openTag)) {
+                $clearTag = $this->clearTag($openTag);
             } else {
-                $clearTag = $endedTag;
+                $clearTag = $openTag;
             }
-            if (array_key_exists($clearTag, $this->result) === false) {
-                $this->result[$clearTag] = 1;
+            $closeTag = $this->closeSearch($clearTag);
+            $fullTag = $clearTag . $closeTag;
+            if (array_key_exists($fullTag, $this->result) === false) {
+                $this->result[$fullTag] = 1;
             } else {
-                $this->result[$clearTag]++;
+                $this->result[$fullTag]++;
             }
-            $this->page = str_replace($endedTag, '', $this->page, $countCloseTag);
-            if ($countCloseTag > 1) {
-                $this->result[$clearTag] += $countCloseTag - 1;
-            }
+//            if ($countCloseTag > 1) {
+//                $this->result[$clearTag] += $countCloseTag - 1;
+//            }
             $startPoint = mb_strpos($this->page, $this->openTag);
         } while ($startPoint !== false);
     }
 
-    public function endingSearch($workingTag, $innerStartTag, $endTag): string
+    public function openSearch(): string
     {
         $endTagPoint = 0;
         $endTagsNumber = 0;
         $startTagsNumber = 0;
         do {
-            $endedTag = $workingTag;
             $endTagPointPrevious = $endTagPoint;
-            $endTagPoint = mb_strpos($endedTag, $endTag, $endTagPoint);
+            $endTagPoint = mb_strpos($this->page, $this->closeTag, $endTagPoint);
             if ($endTagPoint !== false) {
-                $endTagPoint = $endTagPoint + mb_strlen($endTag);
-                $ended_word = mb_substr($endedTag, 0, $endTagPoint);
-                $endTagsNumber = substr_count($endedTag, $endTag);
-                $startTagsNumber = substr_count($endedTag, $innerStartTag);
+                $endTagPoint = $endTagPoint + mb_strlen($this->closeTag);
+                $endedTag = mb_substr($this->page, 0, $endTagPoint);
+                $endTagsNumber = substr_count($this->page, $this->closeTag);
+                $startTagsNumber = substr_count($this->page, $this->openTag);
             } else {
-                $ended_word = mb_substr($endedTag, 0, $endTagPointPrevious);
+                $endedTag = mb_substr($this->page, 0, $endTagPointPrevious);
             }
         } while ($endTagsNumber < $startTagsNumber && $endTagPoint !== false);
-        return $ended_word;
+        $this->page = mb_substr($this->page, $endTagPoint);
+        return $endedTag;
     }
 
     public function clearTag($tag): string
@@ -84,15 +86,20 @@ class Parser
         return $tag . '>';
     }
 
-    public function checkDoubleTags()
+    public function closeSearch($clearTag): string
     {
-        foreach ($this->result as $tag){
-
+        $closeTag = str_replace('<', '</', $clearTag);
+        $endTagPoint = mb_strpos($this->page, $closeTag);
+        if ($endTagPoint !== false) {
+            $endTagPointClose = $endTagPoint + mb_strlen($closeTag);
+            $this->page = mb_substr($this->page, $endTagPoint, $endTagPointClose);
+        } else {
+            $closeTag = '';
         }
+        return $closeTag;
     }
 }
 
 $start = new Parser('https://www.sports.ru/');
 $start->curlInit();
 $start->getTags();
-$start->checkDoubleTags();
