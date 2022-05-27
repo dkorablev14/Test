@@ -13,29 +13,34 @@ class Parser
         $this->url = $url;
     }
 
+// инициализируем curl запрос
     public function curlInit()
     {
         $options = array(
             CURLOPT_URL => $this->url,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_SSL_VERIFYPEER => false
+//                CURLOPT_HEADER => true,
+//            CURLOPT_SSL_VERIFYPEER => false
         );
         $curl = curl_init();
         curl_setopt_array($curl, $options);
 
         $this->page = curl_exec($curl);
-        if ($this->page === false) {
+        if ($this->page == null) {
             echo 'Ошибка curl: ' . curl_error($curl);
             return curl_error($curl);
         }
         curl_close($curl);
     }
 
+// получаем тэги
     public function getTags()
     {
         $startPoint = mb_strpos($this->page, $this->openTag);
         do {
             $this->page = mb_substr($this->page, $startPoint);
+//            убираем знаки больше и меньше из тэга script, чтобы парсер их не распознавал как начало тэга
+            $this->page = preg_replace('#<script.+</script>#U', '<script></script>', $this->page);
             $openTag = $this->openSearch();
             if (preg_match('#\\s#', $openTag)) {
                 $clearTag = $this->clearTag($openTag);
@@ -49,13 +54,12 @@ class Parser
             } else {
                 $this->result[$fullTag]++;
             }
-//            if ($countCloseTag > 1) {
-//                $this->result[$clearTag] += $countCloseTag - 1;
-//            }
             $startPoint = mb_strpos($this->page, $this->openTag);
         } while ($startPoint !== false);
+        return $this->result;
     }
 
+// ищем открывающий тэг
     public function openSearch(): string
     {
         $endTagPoint = 0;
@@ -77,6 +81,7 @@ class Parser
         return $endedTag;
     }
 
+// очищаем от атрибутов
     public function clearTag($tag): string
     {
         do {
@@ -86,13 +91,16 @@ class Parser
         return $tag . '>';
     }
 
+// ищем закрывающий тэг
     public function closeSearch($clearTag): string
     {
         $closeTag = str_replace('<', '</', $clearTag);
         $endTagPoint = mb_strpos($this->page, $closeTag);
         if ($endTagPoint !== false) {
             $endTagPointClose = $endTagPoint + mb_strlen($closeTag);
-            $this->page = mb_substr($this->page, $endTagPoint, $endTagPointClose);
+            $pageCutStart = mb_substr($this->page, 0, $endTagPoint);
+            $pageCutEnd = mb_substr($this->page, $endTagPointClose);
+            $this->page = $pageCutStart . $pageCutEnd;
         } else {
             $closeTag = '';
         }
@@ -100,6 +108,8 @@ class Parser
     }
 }
 
-$start = new Parser('https://www.sports.ru/');
+$start = new Parser('https://www.sports.ru');
 $start->curlInit();
-$start->getTags();
+echo '<pre>';
+print_r($start->getTags());
+echo '</pre>';
