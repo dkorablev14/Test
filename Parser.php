@@ -2,7 +2,7 @@
 
 class Parser
 {
-    public $url;
+    public string $url = '';
 
     public function __construct($url)
     {
@@ -12,7 +12,7 @@ class Parser
 
 class Page extends Parser
 {
-    public $page;
+    public string $page = '';
     // инициализируем curl запрос
     public function curlInit()
     {
@@ -38,7 +38,7 @@ class Tags extends Page
 {
     const OPEN_TAG = '<';
     const CLOSE_TAG= '>';
-    private $result = [];
+    private array $result = [];
 
     public function printTags(){
         $this->getTags();
