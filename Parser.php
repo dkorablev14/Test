@@ -1,6 +1,6 @@
 <?php
 
-class Parser
+abstract class Parser
 {
     public string $url = '';
 
@@ -128,5 +128,5 @@ class Tags extends Page
 
 }
 
-$start = new Tags('https://wm-school.ru/php/php_oop_type-hinting-for-interfaces.php');
+$start = new Tags('https://www.sports.ru/');
 $start->printTags();
