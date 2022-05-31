@@ -2,18 +2,18 @@
 
 class Parser
 {
-    private $url;
-    private $page;
-    private $openTag = '<';
-    private $closeTag = '>';
-    private $result = [];
+    public $url;
 
     public function __construct($url)
     {
         $this->url = $url;
     }
+}
 
-// инициализируем curl запрос
+class Page extends Parser
+{
+    public $page;
+    // инициализируем curl запрос
     public function curlInit()
     {
         $options = array(
@@ -32,15 +32,30 @@ class Parser
         }
         curl_close($curl);
     }
+}
 
+class Tags extends Page
+{
+    const OPEN_TAG = '<';
+    const CLOSE_TAG= '>';
+    private $result = [];
+
+    public function printTags(){
+        $this->getTags();
+        echo '<pre>';
+        print_r($this->result);
+        echo '</pre>';
+    }
 // получаем тэги
     public function getTags()
     {
-        $startPoint = mb_strpos($this->page, $this->openTag);
+        $this->curlInit();
+        $startPoint = mb_strpos($this->page, self::OPEN_TAG);
+        //            убираем знаки больше и меньше из тэга script, чтобы парсер их не распознавал как начало тэга
+        $this->page = preg_replace('#\\n#','',$this->page);
+        $this->page = preg_replace('#<script.+</script>#U', '<script></script>', $this->page);
         do {
             $this->page = mb_substr($this->page, $startPoint);
-//            убираем знаки больше и меньше из тэга script, чтобы парсер их не распознавал как начало тэга
-            $this->page = preg_replace('#<script.+</script>#U', '<script></script>', $this->page);
             $openTag = $this->openSearch();
             if (preg_match('#\\s#', $openTag)) {
                 $clearTag = $this->clearTag($openTag);
@@ -54,9 +69,8 @@ class Parser
             } else {
                 $this->result[$fullTag]++;
             }
-            $startPoint = mb_strpos($this->page, $this->openTag);
+            $startPoint = mb_strpos($this->page, self::OPEN_TAG);
         } while ($startPoint !== false);
-        return $this->result;
     }
 
 // ищем открывающий тэг
@@ -67,12 +81,12 @@ class Parser
         $startTagsNumber = 0;
         do {
             $endTagPointPrevious = $endTagPoint;
-            $endTagPoint = mb_strpos($this->page, $this->closeTag, $endTagPoint);
+            $endTagPoint = mb_strpos($this->page, self::CLOSE_TAG, $endTagPoint);
             if ($endTagPoint !== false) {
-                $endTagPoint = $endTagPoint + mb_strlen($this->closeTag);
+                $endTagPoint = $endTagPoint + mb_strlen(self::CLOSE_TAG);
                 $endedTag = mb_substr($this->page, 0, $endTagPoint);
-                $endTagsNumber = substr_count($this->page, $this->closeTag);
-                $startTagsNumber = substr_count($this->page, $this->openTag);
+                $endTagsNumber = substr_count($this->page, self::CLOSE_TAG);
+                $startTagsNumber = substr_count($this->page, self::OPEN_TAG);
             } else {
                 $endedTag = mb_substr($this->page, 0, $endTagPointPrevious);
             }
@@ -86,7 +100,12 @@ class Parser
     {
         do {
             preg_match('#<.+\s#', $tag, $clearTag);
-            $tag = trim($clearTag[0]);
+            if (isset($clearTag[0])){
+                $tag = trim($clearTag[0]);
+            }
+            else{
+                echo 'stop';
+            }
         } while (preg_match('#\\s#', $tag));
         return $tag . '>';
     }
@@ -106,10 +125,8 @@ class Parser
         }
         return $closeTag;
     }
+
 }
 
-$start = new Parser('https://www.sports.ru');
-$start->curlInit();
-echo '<pre>';
-print_r($start->getTags());
-echo '</pre>';
+$start = new Tags('https://wm-school.ru/php/php_oop_type-hinting-for-interfaces.php');
+$start->printTags();
